@@ -166,7 +166,7 @@ const LandingPage = () => {
         <div className="max-w-6xl mx-auto text-center">
           <span className="text-2xl font-bold gradient-text">AutoCare Pro</span>
           <p className="text-gray-400 mt-4">
-            © 2024 AutoCare Pro. Premium Car Management System.
+            © 2025 AutoCare Pro. Premium Car Management System.
           </p>
         </div>
       </footer>
