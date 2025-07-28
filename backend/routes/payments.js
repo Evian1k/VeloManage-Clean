@@ -9,8 +9,8 @@ import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+// Initialize Stripe (only if API key is provided)
+const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
 // PayPal configuration
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID;
@@ -43,8 +43,10 @@ router.get('/config', authenticateToken, (req, res) => {
   res.json({
     success: true,
     data: {
-      stripe_publishable_key: process.env.STRIPE_PUBLISHABLE_KEY,
-      paypal_client_id: process.env.PAYPAL_CLIENT_ID,
+      stripe_publishable_key: process.env.STRIPE_PUBLISHABLE_KEY || null,
+      paypal_client_id: process.env.PAYPAL_CLIENT_ID || null,
+      stripe_enabled: !!process.env.STRIPE_SECRET_KEY,
+      paypal_enabled: !!(PAYPAL_CLIENT_ID && PAYPAL_CLIENT_SECRET),
       supported_currencies: ['USD', 'EUR', 'GBP', 'KES', 'NGN', 'ZAR'],
       minimum_amounts: {
         USD: 1,
@@ -76,6 +78,13 @@ router.post('/stripe/create-payment-intent', authenticateToken, [
     }
 
     const { amount, currency, description } = req.body;
+
+    if (!stripe) {
+      return res.status(503).json({
+        success: false,
+        message: 'Stripe payment processing is not configured. Please contact administrator.'
+      });
+    }
 
     // Create payment intent
     const paymentIntent = await stripe.paymentIntents.create({
@@ -135,6 +144,13 @@ router.post('/stripe/confirm', authenticateToken, [
     }
 
     const { payment_intent_id } = req.body;
+
+    if (!stripe) {
+      return res.status(503).json({
+        success: false,
+        message: 'Stripe payment processing is not configured. Please contact administrator.'
+      });
+    }
 
     // Retrieve payment intent from Stripe
     const paymentIntent = await stripe.paymentIntents.retrieve(payment_intent_id);
@@ -213,6 +229,13 @@ router.post('/paypal/create-order', authenticateToken, [
 
     const { amount, currency, description } = req.body;
 
+    if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_SECRET) {
+      return res.status(503).json({
+        success: false,
+        message: 'PayPal payment processing is not configured. Please contact administrator.'
+      });
+    }
+
     // Create PayPal order using REST API
     const accessToken = await getPayPalAccessToken();
     
@@ -289,6 +312,13 @@ router.post('/paypal/capture', authenticateToken, [
     }
 
     const { order_id } = req.body;
+
+    if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_SECRET) {
+      return res.status(503).json({
+        success: false,
+        message: 'PayPal payment processing is not configured. Please contact administrator.'
+      });
+    }
 
     // Capture PayPal payment using REST API
     const accessToken = await getPayPalAccessToken();

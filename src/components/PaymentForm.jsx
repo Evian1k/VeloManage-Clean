@@ -35,6 +35,15 @@ const PaymentForm = ({ onSuccess, onCancel }) => {
       const response = await apiService.get('/payments/config');
       if (response.success) {
         setPaymentConfig(response.data);
+        
+        // Show a warning if payment methods are not configured
+        if (!response.data.stripe_enabled && !response.data.paypal_enabled) {
+          toast({
+            title: "Payment Methods Not Configured",
+            description: "Stripe and PayPal are not set up. Contact administrator to enable payments.",
+            variant: "destructive"
+          });
+        }
       }
     } catch (error) {
       console.error('Failed to load payment config:', error);
@@ -192,36 +201,46 @@ const PaymentForm = ({ onSuccess, onCancel }) => {
             <div className="grid grid-cols-2 gap-3">
               <motion.button
                 type="button"
-                onClick={() => setPaymentMethod('stripe')}
+                onClick={() => paymentConfig?.stripe_enabled && setPaymentMethod('stripe')}
+                disabled={!paymentConfig?.stripe_enabled}
                 className={`
                   p-3 rounded-lg border-2 transition-all duration-300 flex items-center justify-center gap-2
-                  ${paymentMethod === 'stripe' 
-                    ? 'border-blue-500 bg-blue-500/20 text-blue-300' 
-                    : 'border-gray-600 hover:border-gray-500 text-gray-400'
+                  ${!paymentConfig?.stripe_enabled 
+                    ? 'border-gray-700 bg-gray-800/50 text-gray-600 cursor-not-allowed'
+                    : paymentMethod === 'stripe' 
+                      ? 'border-blue-500 bg-blue-500/20 text-blue-300' 
+                      : 'border-gray-600 hover:border-gray-500 text-gray-400'
                   }
                 `}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={paymentConfig?.stripe_enabled ? { scale: 1.02 } : {}}
+                whileTap={paymentConfig?.stripe_enabled ? { scale: 0.98 } : {}}
               >
                 <CreditCard className="w-4 h-4" />
-                <span className="text-sm font-medium">Stripe</span>
+                <span className="text-sm font-medium">
+                  Stripe {!paymentConfig?.stripe_enabled && '(Not Available)'}
+                </span>
               </motion.button>
               
               <motion.button
                 type="button"
-                onClick={() => setPaymentMethod('paypal')}
+                onClick={() => paymentConfig?.paypal_enabled && setPaymentMethod('paypal')}
+                disabled={!paymentConfig?.paypal_enabled}
                 className={`
                   p-3 rounded-lg border-2 transition-all duration-300 flex items-center justify-center gap-2
-                  ${paymentMethod === 'paypal' 
-                    ? 'border-blue-500 bg-blue-500/20 text-blue-300' 
-                    : 'border-gray-600 hover:border-gray-500 text-gray-400'
+                  ${!paymentConfig?.paypal_enabled 
+                    ? 'border-gray-700 bg-gray-800/50 text-gray-600 cursor-not-allowed'
+                    : paymentMethod === 'paypal' 
+                      ? 'border-blue-500 bg-blue-500/20 text-blue-300' 
+                      : 'border-gray-600 hover:border-gray-500 text-gray-400'
                   }
                 `}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={paymentConfig?.paypal_enabled ? { scale: 1.02 } : {}}
+                whileTap={paymentConfig?.paypal_enabled ? { scale: 0.98 } : {}}
               >
                 <PaypalIcon className="w-4 h-4" />
-                <span className="text-sm font-medium">PayPal</span>
+                <span className="text-sm font-medium">
+                  PayPal {!paymentConfig?.paypal_enabled && '(Not Available)'}
+                </span>
               </motion.button>
             </div>
           </div>
