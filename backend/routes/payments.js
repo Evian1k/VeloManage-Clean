@@ -1,6 +1,6 @@
 import express from 'express';
 import { body, validationResult } from 'express-validator';
-import Stripe from 'stripe';
+import PayStack from 'paystack-api';
 // Note: PayPal SDK has been deprecated, using REST API directly instead
 // import paypal from '@paypal/paypal-server-sdk';
 import Payment from '../models/Payment.js';
@@ -9,8 +9,8 @@ import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Initialize Stripe (only if API key is provided)
-const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
+// Initialize Paystack (only if API key is provided)
+const paystack = process.env.PAYSTACK_SECRET_KEY ? PayStack(process.env.PAYSTACK_SECRET_KEY) : null;
 
 // PayPal configuration
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID;
@@ -43,29 +43,28 @@ router.get('/config', authenticateToken, (req, res) => {
   res.json({
     success: true,
     data: {
-      stripe_publishable_key: process.env.STRIPE_PUBLISHABLE_KEY || null,
+      paystack_public_key: process.env.PAYSTACK_PUBLIC_KEY || null,
       paypal_client_id: process.env.PAYPAL_CLIENT_ID || null,
-      stripe_enabled: !!process.env.STRIPE_SECRET_KEY,
+      paystack_enabled: !!process.env.PAYSTACK_SECRET_KEY,
       paypal_enabled: !!(PAYPAL_CLIENT_ID && PAYPAL_CLIENT_SECRET),
-      supported_currencies: ['USD', 'EUR', 'GBP', 'KES', 'NGN', 'ZAR'],
+      supported_currencies: ['NGN', 'USD', 'GHS', 'ZAR', 'KES'],
       minimum_amounts: {
-        USD: 1,
-        EUR: 1,
-        GBP: 1,
-        KES: 100,
         NGN: 100,
-        ZAR: 10
+        USD: 1,
+        GHS: 5,
+        ZAR: 10,
+        KES: 100
       }
     }
   });
 });
 
-// @route   POST /api/v1/payments/stripe/create-payment-intent
-// @desc    Create Stripe payment intent
+// @route   POST /api/v1/payments/paystack/initialize
+// @desc    Initialize Paystack transaction
 // @access  Private
-router.post('/stripe/create-payment-intent', authenticateToken, [
+router.post('/paystack/initialize', authenticateToken, [
   body('amount').isNumeric().withMessage('Amount must be a number'),
-  body('currency').isIn(['USD', 'EUR', 'GBP', 'KES', 'NGN', 'ZAR']).withMessage('Invalid currency'),
+  body('currency').isIn(['NGN', 'USD', 'GHS', 'ZAR', 'KES']).withMessage('Invalid currency'),
   body('description').optional().trim().isLength({ max: 500 }).withMessage('Description too long')
 ], async (req, res) => {
   try {
@@ -79,60 +78,74 @@ router.post('/stripe/create-payment-intent', authenticateToken, [
 
     const { amount, currency, description } = req.body;
 
-    if (!stripe) {
+    if (!paystack) {
       return res.status(503).json({
         success: false,
-        message: 'Stripe payment processing is not configured. Please contact administrator.'
+        message: 'Paystack payment processing is not configured. Please contact administrator.'
       });
     }
 
-    // Create payment intent
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // Convert to cents
-      currency: currency.toLowerCase(),
-      description: description || `Payment from ${req.user.name}`,
-      metadata: {
-        userId: req.user._id.toString(),
-        userName: req.user.name,
-        userEmail: req.user.email
-      }
-    });
-
-    // Create payment record
+    // Create payment record first
     const payment = new Payment({
       user: req.user._id,
       amount,
       currency,
       description,
-      paymentMethod: 'stripe',
-      stripePaymentIntentId: paymentIntent.id,
+      paymentMethod: 'paystack',
       status: 'pending'
     });
 
     await payment.save();
 
-    res.json({
-      success: true,
-      data: {
-        client_secret: paymentIntent.client_secret,
-        payment_id: payment._id
+    // Initialize Paystack transaction
+    const transactionData = {
+      amount: Math.round(amount * 100), // Convert to kobo/cents
+      email: req.user.email,
+      currency: currency.toUpperCase(),
+      reference: payment._id.toString(),
+      callback_url: `${process.env.FRONTEND_URL}/payment/callback`,
+      metadata: {
+        payment_id: payment._id.toString(),
+        user_id: req.user._id.toString(),
+        user_name: req.user.name,
+        description: description || `Payment from ${req.user.name}`
       }
-    });
+    };
+
+    const response = await paystack.transaction.initialize(transactionData);
+
+    if (response.status) {
+      // Update payment with Paystack reference
+      payment.paystackReference = response.data.reference;
+      await payment.save();
+
+      res.json({
+        success: true,
+        data: {
+          authorization_url: response.data.authorization_url,
+          access_code: response.data.access_code,
+          reference: response.data.reference,
+          payment_id: payment._id
+        }
+      });
+    } else {
+      throw new Error(response.message || 'Failed to initialize transaction');
+    }
 
   } catch (error) {
-    console.error('Stripe payment intent error:', error);
+    console.error('Paystack initialization error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error creating payment intent'
+      message: error.message || 'Error initializing payment'
     });
   }
 });
 
-// @route   POST /api/v1/payments/stripe/confirm
-// @desc    Confirm Stripe payment
+// @route   POST /api/v1/payments/paystack/verify
+// @desc    Verify Paystack payment
 // @access  Private
-router.post('/stripe/confirm', authenticateToken, [
-  body('payment_intent_id').notEmpty().withMessage('Payment intent ID is required')
+router.post('/paystack/verify', authenticateToken, [
+  body('reference').notEmpty().withMessage('Payment reference is required')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -143,20 +156,26 @@ router.post('/stripe/confirm', authenticateToken, [
       });
     }
 
-    const { payment_intent_id } = req.body;
+    const { reference } = req.body;
 
-    if (!stripe) {
+    if (!paystack) {
       return res.status(503).json({
         success: false,
-        message: 'Stripe payment processing is not configured. Please contact administrator.'
+        message: 'Paystack payment processing is not configured. Please contact administrator.'
       });
     }
 
-    // Retrieve payment intent from Stripe
-    const paymentIntent = await stripe.paymentIntents.retrieve(payment_intent_id);
+    // Verify transaction with Paystack
+    const response = await paystack.transaction.verify(reference);
 
-    // Update payment record
-    const payment = await Payment.findOne({ stripePaymentIntentId: payment_intent_id });
+    if (!response.status) {
+      throw new Error(response.message || 'Transaction verification failed');
+    }
+
+    const transaction = response.data;
+
+    // Find payment record
+    const payment = await Payment.findById(transaction.metadata.payment_id);
     
     if (!payment) {
       return res.status(404).json({
@@ -165,10 +184,12 @@ router.post('/stripe/confirm', authenticateToken, [
       });
     }
 
-    payment.status = paymentIntent.status === 'succeeded' ? 'completed' : 'failed';
-    payment.stripePaymentIntentStatus = paymentIntent.status;
+    // Update payment status
+    payment.status = transaction.status === 'success' ? 'completed' : 'failed';
+    payment.paystackTransactionId = transaction.id;
+    payment.paystackStatus = transaction.status;
     
-    if (paymentIntent.status === 'succeeded') {
+    if (transaction.status === 'success') {
       payment.completedAt = new Date();
     }
 
@@ -176,7 +197,7 @@ router.post('/stripe/confirm', authenticateToken, [
 
     // Notify admins via socket
     const io = req.app.get('socketio');
-    if (paymentIntent.status === 'succeeded') {
+    if (transaction.status === 'success') {
       const eventData = {
         type: 'payment',
         paymentId: payment._id,
@@ -186,7 +207,7 @@ router.post('/stripe/confirm', authenticateToken, [
         currency: payment.currency,
         description: payment.description,
         timestamp: new Date(),
-        message: `Payment of ${payment.currency} ${payment.amount} received from ${req.user.name}`
+        message: `Paystack payment of ${payment.currency} ${payment.amount} received from ${req.user.name}`
       };
 
       io.to('admin-room').emit('payment-notification', eventData);
@@ -196,16 +217,18 @@ router.post('/stripe/confirm', authenticateToken, [
     res.json({
       success: true,
       data: {
-        payment_status: paymentIntent.status,
-        payment_id: payment._id
+        payment_status: transaction.status,
+        payment_id: payment._id,
+        amount: transaction.amount / 100, // Convert back from kobo/cents
+        currency: transaction.currency
       }
     });
 
   } catch (error) {
-    console.error('Stripe payment confirmation error:', error);
+    console.error('Paystack payment verification error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error confirming payment'
+      message: error.message || 'Error verifying payment'
     });
   }
 });

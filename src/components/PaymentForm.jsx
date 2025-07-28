@@ -8,6 +8,14 @@ const PaypalIcon = ({ className }) => (
     <path d="M8.32 20.32h-4.6c-.5 0-.9-.4-.9-.9l2.5-15.8c.1-.5.5-.9 1-.9h7.1c1.8 0 3.2.3 4.2.8 1 .5 1.6 1.3 1.7 2.3.1.8-.1 1.5-.6 2.1-.5.6-1.4 1-2.6 1.1 0 0 0 .1 0 .2.4 2.2-.2 3.8-1.7 4.6-1.4.7-3.5.8-5.9.8-.2 0-.4-.2-.4-.4v-.7c0-.2.2-.4.4-.4 2.4 0 4.5-.1 5.9-.8 1.6-.8 2.2-2.4 1.7-4.6 0-.1 0-.1 0-.2 1.2-.2 2.1-.6 2.6-1.1.5-.6.7-1.3.6-2.1-.1-1-.7-1.8-1.7-2.3-1-.5-2.4-.8-4.2-.8h-7.1c-.5 0-1 .4-1.1.9l-2.5 15.8c0 .5.4.9.9.9z"/>
   </svg>
 );
+
+// Paystack Icon Component
+const PaystackIcon = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M8.5 2L12 5.5L15.5 2L12 5.5L8.5 2zM2 8.5L5.5 12L2 15.5L5.5 12L2 8.5zM22 8.5L18.5 12L22 15.5L18.5 12L22 8.5zM8.5 22L12 18.5L15.5 22L12 18.5L8.5 22z"/>
+    <circle cx="12" cy="12" r="3" fill="currentColor"/>
+  </svg>
+);
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,9 +25,9 @@ import { useToast } from '@/components/ui/use-toast';
 import { apiService } from '@/services/api';
 
 const PaymentForm = ({ onSuccess, onCancel }) => {
-  const [paymentMethod, setPaymentMethod] = useState('stripe');
+  const [paymentMethod, setPaymentMethod] = useState('paystack');
   const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState('NGN');
   const [description, setDescription] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentConfig, setPaymentConfig] = useState(null);
@@ -37,10 +45,10 @@ const PaymentForm = ({ onSuccess, onCancel }) => {
         setPaymentConfig(response.data);
         
         // Show a warning if payment methods are not configured
-        if (!response.data.stripe_enabled && !response.data.paypal_enabled) {
+        if (!response.data.paystack_enabled && !response.data.paypal_enabled) {
           toast({
             title: "Payment Methods Not Configured",
-            description: "Stripe and PayPal are not set up. Contact administrator to enable payments.",
+            description: "Paystack and PayPal are not set up. Contact administrator to enable payments.",
             variant: "destructive"
           });
         }
@@ -77,38 +85,31 @@ const PaymentForm = ({ onSuccess, onCancel }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleStripePayment = async () => {
+  const handlePaystackPayment = async () => {
     try {
-      // Create payment intent
-      const response = await apiService.post('/payments/stripe/create-payment-intent', {
+      // Initialize Paystack transaction
+      const response = await apiService.initializePaystackTransaction({
         amount: parseFloat(amount),
         currency,
         description
       });
 
       if (response.success) {
-        // Here you would integrate with Stripe Elements
-        // For now, we'll simulate a successful payment
         toast({
           title: "Payment Processing",
-          description: "Redirecting to Stripe checkout...",
+          description: "Redirecting to Paystack checkout...",
         });
 
-        // Simulate payment completion
-        setTimeout(() => {
-          handlePaymentSuccess({
-            payment_id: response.data.payment_id,
-            method: 'stripe'
-          });
-        }, 2000);
+        // Redirect to Paystack payment page
+        window.location.href = response.data.authorization_url;
       } else {
-        throw new Error(response.message || 'Payment failed');
+        throw new Error(response.message || 'Payment initialization failed');
       }
     } catch (error) {
-      console.error('Stripe payment error:', error);
+      console.error('Paystack payment error:', error);
       toast({
         title: "Payment Failed",
-        description: error.message || "Failed to process Stripe payment.",
+        description: error.message || "Failed to process Paystack payment.",
         variant: "destructive"
       });
     }
@@ -157,8 +158,8 @@ const PaymentForm = ({ onSuccess, onCancel }) => {
     setIsProcessing(true);
 
     try {
-      if (paymentMethod === 'stripe') {
-        await handleStripePayment();
+      if (paymentMethod === 'paystack') {
+        await handlePaystackPayment();
       } else if (paymentMethod === 'paypal') {
         await handlePayPalPayment();
       }
@@ -201,23 +202,23 @@ const PaymentForm = ({ onSuccess, onCancel }) => {
             <div className="grid grid-cols-2 gap-3">
               <motion.button
                 type="button"
-                onClick={() => paymentConfig?.stripe_enabled && setPaymentMethod('stripe')}
-                disabled={!paymentConfig?.stripe_enabled}
+                onClick={() => paymentConfig?.paystack_enabled && setPaymentMethod('paystack')}
+                disabled={!paymentConfig?.paystack_enabled}
                 className={`
                   p-3 rounded-lg border-2 transition-all duration-300 flex items-center justify-center gap-2
-                  ${!paymentConfig?.stripe_enabled 
+                  ${!paymentConfig?.paystack_enabled 
                     ? 'border-gray-700 bg-gray-800/50 text-gray-600 cursor-not-allowed'
-                    : paymentMethod === 'stripe' 
-                      ? 'border-blue-500 bg-blue-500/20 text-blue-300' 
+                    : paymentMethod === 'paystack' 
+                      ? 'border-green-500 bg-green-500/20 text-green-300' 
                       : 'border-gray-600 hover:border-gray-500 text-gray-400'
                   }
                 `}
-                whileHover={paymentConfig?.stripe_enabled ? { scale: 1.02 } : {}}
-                whileTap={paymentConfig?.stripe_enabled ? { scale: 0.98 } : {}}
+                whileHover={paymentConfig?.paystack_enabled ? { scale: 1.02 } : {}}
+                whileTap={paymentConfig?.paystack_enabled ? { scale: 0.98 } : {}}
               >
-                <CreditCard className="w-4 h-4" />
+                <PaystackIcon className="w-4 h-4" />
                 <span className="text-sm font-medium">
-                  Stripe {!paymentConfig?.stripe_enabled && '(Not Available)'}
+                  Paystack {!paymentConfig?.paystack_enabled && '(Not Available)'}
                 </span>
               </motion.button>
               
@@ -342,7 +343,7 @@ const PaymentForm = ({ onSuccess, onCancel }) => {
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    {paymentMethod === 'stripe' ? <CreditCard className="w-4 h-4" /> : <PaypalIcon className="w-4 h-4" />}
+                    {paymentMethod === 'paystack' ? <PaystackIcon className="w-4 h-4" /> : <PaypalIcon className="w-4 h-4" />}
                     Pay {currency} {amount || '0.00'}
                   </div>
                 )}

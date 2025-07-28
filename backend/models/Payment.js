@@ -14,8 +14,8 @@ const paymentSchema = new mongoose.Schema({
   currency: {
     type: String,
     required: true,
-    enum: ['USD', 'EUR', 'GBP', 'KES', 'NGN', 'ZAR'],
-    default: 'USD'
+    enum: ['NGN', 'USD', 'GHS', 'ZAR', 'KES'],
+    default: 'NGN'
   },
   description: {
     type: String,
@@ -25,8 +25,8 @@ const paymentSchema = new mongoose.Schema({
   paymentMethod: {
     type: String,
     required: true,
-    enum: ['stripe', 'paypal', 'manual'],
-    default: 'stripe'
+    enum: ['paystack', 'paypal', 'manual'],
+    default: 'paystack'
   },
   status: {
     type: String,
@@ -34,17 +34,18 @@ const paymentSchema = new mongoose.Schema({
     enum: ['pending', 'completed', 'failed', 'cancelled', 'refunded'],
     default: 'pending'
   },
-  // Stripe-specific fields
-  stripePaymentIntentId: {
+  // Paystack-specific fields
+  paystackReference: {
     type: String,
     sparse: true
   },
-  stripePaymentIntentStatus: {
+  paystackTransactionId: {
     type: String,
-    enum: ['requires_payment_method', 'requires_confirmation', 'requires_action', 'processing', 'requires_capture', 'canceled', 'succeeded']
+    sparse: true
   },
-  stripeChargeId: {
-    type: String
+  paystackStatus: {
+    type: String,
+    enum: ['pending', 'ongoing', 'success', 'failed', 'timeout', 'processing', 'abandoned']
   },
   // PayPal-specific fields
   paypalOrderId: {
@@ -194,7 +195,8 @@ paymentSchema.index({ status: 1 });
 paymentSchema.index({ paymentMethod: 1 });
 paymentSchema.index({ currency: 1 });
 paymentSchema.index({ transactionId: 1 });
-paymentSchema.index({ stripePaymentIntentId: 1 });
+paymentSchema.index({ paystackReference: 1 });
+paymentSchema.index({ paystackTransactionId: 1 });
 paymentSchema.index({ paypalOrderId: 1 });
 paymentSchema.index({ completedAt: -1 });
 paymentSchema.index({ isVisibleToAdmins: 1 });

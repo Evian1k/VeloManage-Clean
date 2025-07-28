@@ -37,25 +37,26 @@
 ### 3. 💳 Worldwide Payment Integration
 
 **Implementation**:
-- ✅ **Stripe Integration**: Full Stripe payment processing with international support
+- ✅ **Paystack Integration**: Full Paystack payment processing with African market focus
 - ✅ **PayPal Integration**: PayPal REST API integration for global payments
-- ✅ **Multi-currency Support**: USD, EUR, GBP, KES, NGN, ZAR
+- ✅ **Multi-currency Support**: NGN, USD, GHS, ZAR, KES (optimized for African markets)
 - ✅ **Payment tracking**: Complete payment lifecycle management
 - ✅ **Admin notifications**: Real-time payment notifications to all admins
 - ✅ **Payment history**: Full transaction history for users and admins
 
 **Technical Details**:
 - Created `Payment.js` model with comprehensive payment tracking
-- Built `payments.js` routes with Stripe and PayPal endpoints
+- Built `payments.js` routes with Paystack and PayPal endpoints
 - `PaymentForm.jsx` component with modern UI
+- `PaymentCallback.jsx` for Paystack verification
 - Real-time payment notifications via Socket.io
 - Admin payment dashboard integration
 
 **API Endpoints**:
 ```
 GET  /api/v1/payments/config
-POST /api/v1/payments/stripe/create-payment-intent
-POST /api/v1/payments/stripe/confirm
+POST /api/v1/payments/paystack/initialize
+POST /api/v1/payments/paystack/verify
 POST /api/v1/payments/paypal/create-order
 POST /api/v1/payments/paypal/capture
 GET  /api/v1/payments
@@ -176,12 +177,11 @@ src/
 ## 🌍 Global Features
 
 ### Multi-Currency Support
-- **USD** - US Dollar (minimum: $1)
-- **EUR** - Euro (minimum: €1)
-- **GBP** - British Pound (minimum: £1)
-- **KES** - Kenyan Shilling (minimum: KES 100)
 - **NGN** - Nigerian Naira (minimum: ₦100)
+- **USD** - US Dollar (minimum: $1)
+- **GHS** - Ghanaian Cedi (minimum: GH₵5)
 - **ZAR** - South African Rand (minimum: R10)
+- **KES** - Kenyan Shilling (minimum: KES 100)
 
 ### Location Support
 - **Worldwide**: Google Maps integration supports global locations
@@ -212,8 +212,8 @@ npm run dev
 
 **Backend (.env)**:
 ```env
-STRIPE_SECRET_KEY=sk_test_your_stripe_key
-STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_key
+PAYSTACK_SECRET_KEY=sk_test_your_paystack_secret_key
+PAYSTACK_PUBLIC_KEY=pk_test_your_paystack_public_key
 PAYPAL_CLIENT_ID=your_paypal_client_id
 PAYPAL_CLIENT_SECRET=your_paypal_secret
 GOOGLE_MAPS_API_KEY=your_google_maps_key
@@ -264,9 +264,9 @@ VITE_GOOGLE_MAPS_API_KEY=your_google_maps_key
 ## 🧪 Testing Recommendations
 
 ### Payment Testing:
-- Use Stripe test cards: `4242424242424242`
+- Use Paystack test cards and methods from Paystack docs
 - PayPal sandbox environment configured
-- Test multi-currency transactions
+- Test multi-currency transactions (NGN, USD, GHS, ZAR, KES)
 
 ### Location Testing:
 - Test in different geographical locations

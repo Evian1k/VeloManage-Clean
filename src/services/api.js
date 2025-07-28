@@ -328,17 +328,17 @@ class ApiService {
     return this.request('/payments/config');
   }
 
-  async createStripePaymentIntent(paymentData) {
-    return this.request('/payments/stripe/create-payment-intent', {
+  async initializePaystackTransaction(paymentData) {
+    return this.request('/payments/paystack/initialize', {
       method: 'POST',
       body: JSON.stringify(paymentData),
     });
   }
 
-  async confirmStripePayment(paymentIntentId) {
-    return this.request('/payments/stripe/confirm', {
+  async verifyPaystackPayment(reference) {
+    return this.request('/payments/paystack/verify', {
       method: 'POST',
-      body: JSON.stringify({ payment_intent_id: paymentIntentId }),
+      body: JSON.stringify({ reference }),
     });
   }
 

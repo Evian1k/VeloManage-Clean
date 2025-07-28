@@ -16,6 +16,7 @@ import { MessageProvider } from '@/contexts/MessageContext';
 import MyVehiclesPage from '@/pages/MyVehiclesPage';
 import ServiceHistoryPage from '@/pages/ServiceHistoryPage';
 import SettingsPage from '@/pages/SettingsPage';
+import PaymentCallback from '@/pages/PaymentCallback';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import IntroAnimation from '@/components/IntroAnimation';
 
@@ -109,6 +110,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <SettingsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/payment/callback"
+                  element={
+                    <ProtectedRoute>
+                      <PaymentCallback />
                     </ProtectedRoute>
                   }
                 />
