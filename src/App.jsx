@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { Toaster } from '@/components/ui/toaster';
@@ -17,13 +17,34 @@ import MyVehiclesPage from '@/pages/MyVehiclesPage';
 import ServiceHistoryPage from '@/pages/ServiceHistoryPage';
 import SettingsPage from '@/pages/SettingsPage';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import IntroAnimation from '@/components/IntroAnimation';
 
 function App() {
+  const [showIntro, setShowIntro] = useState(true);
+  const [isFirstVisit, setIsFirstVisit] = useState(true);
+
+  useEffect(() => {
+    // Check if user has seen intro before
+    const hasSeenIntro = localStorage.getItem('autocare_intro_seen');
+    if (hasSeenIntro) {
+      setShowIntro(false);
+      setIsFirstVisit(false);
+    }
+  }, []);
+
+  const handleIntroComplete = () => {
+    setShowIntro(false);
+    localStorage.setItem('autocare_intro_seen', 'true');
+  };
+
   return (
     <ErrorBoundary>
       <AuthProvider>
         <ServiceProvider>
           <MessageProvider>
+            {showIntro && isFirstVisit && (
+              <IntroAnimation onComplete={handleIntroComplete} />
+            )}
             <Router>
               <div className="min-h-screen">
                 <Helmet>

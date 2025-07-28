@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { apiService } from '../services/api';
+import socketService from '../services/socketService';
 
 const MessageContext = createContext();
 
@@ -114,9 +115,32 @@ export const MessageProvider = ({ children }) => {
   useEffect(() => {
     if (user) {
       loadMessages();
+      
+      // Connect to socket service
+      socketService.connect(user);
+      
+      // Set up real-time message handlers
+      const unsubscribeMessage = socketService.on('message-received', (data) => {
+        handleRealTimeMessage(data);
+      });
+      
+      const unsubscribeAdminSubmission = socketService.on('admin-submission-received', (data) => {
+        handleAdminSubmission(data);
+      });
+      
+      const unsubscribeBroadcast = socketService.on('admin-broadcast-received', (data) => {
+        handleAdminBroadcast(data);
+      });
+      
+      return () => {
+        unsubscribeMessage();
+        unsubscribeAdminSubmission();
+        unsubscribeBroadcast();
+      };
     } else {
       setConversations({});
       setUsersWithMessages([]);
+      socketService.disconnect();
     }
   }, [user]);
 
@@ -231,6 +255,57 @@ export const MessageProvider = ({ children }) => {
 
   const refreshMessages = () => {
     loadMessages();
+  };
+
+  const handleRealTimeMessage = (data) => {
+    if (!data.message) return;
+    
+    const message = data.message;
+    const conversationId = user.isAdmin ? data.conversationId : user.id;
+    
+    setConversations(prev => {
+      const currentMessages = prev[conversationId] || [];
+      const messageExists = currentMessages.find(m => m._id === message._id);
+      
+      if (!messageExists) {
+        const updatedMessages = [...currentMessages, message];
+        return { ...prev, [conversationId]: updatedMessages };
+      }
+      
+      return prev;
+    });
+  };
+  
+  const handleAdminSubmission = (data) => {
+    if (!user.isAdmin) return;
+    
+    // For admin users, update conversations based on submission type
+    if (data.type === 'message') {
+      handleRealTimeMessage(data);
+    }
+    
+    // Could handle other submission types (payments, locations, etc.)
+    console.log('Admin submission received:', data);
+  };
+  
+  const handleAdminBroadcast = (data) => {
+    if (!user.isAdmin) return;
+    
+    // Handle admin broadcast messages
+    if (data.message) {
+      const conversationId = 'admin-broadcast';
+      setConversations(prev => {
+        const currentMessages = prev[conversationId] || [];
+        const messageExists = currentMessages.find(m => m._id === data.message._id);
+        
+        if (!messageExists) {
+          const updatedMessages = [...currentMessages, data.message];
+          return { ...prev, [conversationId]: updatedMessages };
+        }
+        
+        return prev;
+      });
+    }
   };
 
   const value = {

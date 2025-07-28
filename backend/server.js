@@ -18,6 +18,8 @@ import branchRoutes from './routes/branches.js';
 import bookingRoutes from './routes/bookings.js';
 import analyticsRoutes from './routes/analytics.js';
 import dashboardRoutes from './routes/dashboard.js';
+import paymentRoutes from './routes/payments.js';
+import locationRoutes from './routes/locations.js';
 
 // Import middleware
 import { authenticateToken } from './middleware/auth.js';
@@ -82,6 +84,8 @@ app.use(`/api/${apiVersion}/branches`, authenticateToken, branchRoutes);
 app.use(`/api/${apiVersion}/bookings`, authenticateToken, bookingRoutes);
 app.use(`/api/${apiVersion}/analytics`, authenticateToken, analyticsRoutes);
 app.use(`/api/${apiVersion}/dashboard`, authenticateToken, dashboardRoutes);
+app.use(`/api/${apiVersion}/payments`, paymentRoutes);
+app.use(`/api/${apiVersion}/locations`, locationRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -109,7 +113,9 @@ app.get('/', (req, res) => {
       branches: `/api/${apiVersion}/branches`,
       bookings: `/api/${apiVersion}/bookings`,
       analytics: `/api/${apiVersion}/analytics`,
-      dashboard: `/api/${apiVersion}/dashboard`
+      dashboard: `/api/${apiVersion}/dashboard`,
+      payments: `/api/${apiVersion}/payments`,
+      locations: `/api/${apiVersion}/locations`
     }
   });
 });
@@ -125,38 +131,74 @@ io.on('connection', (socket) => {
   });
 
   // Join admin to admin room
-  socket.on('join-admin-room', () => {
+  socket.on('join-admin-room', (adminId) => {
     socket.join('admin-room');
-    console.log('👨‍💼 Admin joined admin room');
+    socket.join(`admin-${adminId}`);
+    console.log(`👨‍💼 Admin ${adminId} joined admin room`);
   });
 
   // Handle truck location updates
   socket.on('truck-location-update', (data) => {
-    // Broadcast to all connected clients
+    // Broadcast to all connected clients and specifically to admin room
     socket.broadcast.emit('truck-location-updated', data);
+    socket.to('admin-room').emit('truck-location-updated', data);
   });
 
   // Handle new messages
   socket.on('new-message', (data) => {
-    if (data.recipientType === 'admin') {
-      // Send to admin room
+    if (data.recipientType === 'admin' || data.recipientType === 'all_admins') {
+      // Send to ALL admins
       socket.to('admin-room').emit('message-received', data);
+      io.emit('admin-submission-received', data);
     } else {
       // Send to specific user
       socket.to(`user-${data.recipientId}`).emit('message-received', data);
     }
   });
 
+  // Handle admin broadcasts
+  socket.on('admin-broadcast', (data) => {
+    // Broadcast to all admins
+    socket.to('admin-room').emit('admin-broadcast-received', data);
+    io.emit('admin-submission-received', data);
+    console.log('📢 Admin broadcast distributed');
+  });
+
+  // Handle user submissions to admins
+  socket.on('user-submission', (data) => {
+    // Send to ALL admins
+    socket.to('admin-room').emit('user-submission-received', data);
+    io.emit('admin-submission-received', data);
+    console.log(`📨 User submission from ${data.senderName} sent to all admins`);
+  });
+
   // Handle pickup requests
   socket.on('new-pickup-request', (data) => {
     // Notify all admins
     socket.to('admin-room').emit('pickup-request-received', data);
+    io.emit('admin-submission-received', data);
   });
 
   // Handle truck dispatch
   socket.on('truck-dispatched', (data) => {
     // Notify the specific user
     socket.to(`user-${data.userId}`).emit('truck-dispatch-update', data);
+    // Also notify all admins
+    socket.to('admin-room').emit('truck-dispatch-update', data);
+  });
+
+  // Handle payment notifications
+  socket.on('payment-received', (data) => {
+    // Notify all admins about payment
+    socket.to('admin-room').emit('payment-notification', data);
+    io.emit('admin-submission-received', data);
+  });
+
+  // Handle location sharing
+  socket.on('location-shared', (data) => {
+    // Notify all admins about new location
+    socket.to('admin-room').emit('location-update', data);
+    io.emit('admin-submission-received', data);
   });
 
   socket.on('disconnect', () => {

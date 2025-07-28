@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:3001/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1';
 
 class ApiService {
   constructor() {
@@ -321,6 +321,96 @@ class ApiService {
     }, 5000); // Poll every 5 seconds
 
     return () => clearInterval(pollInterval);
+  }
+
+  // Payment endpoints
+  async getPaymentConfig() {
+    return this.request('/payments/config');
+  }
+
+  async createStripePaymentIntent(paymentData) {
+    return this.request('/payments/stripe/create-payment-intent', {
+      method: 'POST',
+      body: JSON.stringify(paymentData),
+    });
+  }
+
+  async confirmStripePayment(paymentIntentId) {
+    return this.request('/payments/stripe/confirm', {
+      method: 'POST',
+      body: JSON.stringify({ payment_intent_id: paymentIntentId }),
+    });
+  }
+
+  async createPayPalOrder(paymentData) {
+    return this.request('/payments/paypal/create-order', {
+      method: 'POST',
+      body: JSON.stringify(paymentData),
+    });
+  }
+
+  async capturePayPalPayment(orderId) {
+    return this.request('/payments/paypal/capture', {
+      method: 'POST',
+      body: JSON.stringify({ order_id: orderId }),
+    });
+  }
+
+  async getPayments() {
+    return this.request('/payments');
+  }
+
+  async getAllPayments() {
+    return this.request('/payments/admin/all');
+  }
+
+  // Location endpoints
+  async getLocations() {
+    return this.request('/locations');
+  }
+
+  async shareLocation(locationData) {
+    return this.request('/locations', {
+      method: 'POST',
+      body: JSON.stringify(locationData),
+    });
+  }
+
+  async getLocationsForMaps() {
+    return this.request('/locations/maps-format');
+  }
+
+  async getNearbyLocations(latitude, longitude, radius = 10000) {
+    return this.request(`/locations/nearby?latitude=${latitude}&longitude=${longitude}&radius=${radius}`);
+  }
+
+  async updateLocation(locationId, locationData) {
+    return this.request(`/locations/${locationId}`, {
+      method: 'PUT',
+      body: JSON.stringify(locationData),
+    });
+  }
+
+  async deleteLocation(locationId) {
+    return this.request(`/locations/${locationId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getLocationStats() {
+    return this.request('/locations/admin/stats');
+  }
+
+  // Admin messaging endpoints
+  async getAdminSubmissions() {
+    return this.request('/messages/admin-submissions');
+  }
+
+  async broadcastMessage(messageData) {
+    return this.request('/messages/broadcast', {
+      method: 'POST',
+      body: JSON.stringify(messageData),
+    });
   }
 }
 

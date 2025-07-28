@@ -20,7 +20,9 @@ import {
   RefreshCw,
   AlertTriangle,
   CheckCircle,
-  Clock
+  Clock,
+  Star,
+  Zap
 } from 'lucide-react';
 import { apiService } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
@@ -344,15 +346,21 @@ const TruckManagement = () => {
           </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={resetForm}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Truck
+              <Button 
+                onClick={resetForm}
+                className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-semibold shadow-lg transform hover:scale-105 transition-all duration-200"
+              >
+                <Truck className="w-5 h-5 mr-2" />
+                Add Pickup Truck
+                <Star className="w-4 h-4 ml-2" />
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>
-                  {editingTruck ? 'Edit Truck' : 'Add New Truck'}
+                <DialogTitle className="flex items-center gap-2">
+                  <Truck className="w-5 h-5 text-red-600" />
+                  {editingTruck ? 'Edit Pickup Truck' : 'Add New Pickup Truck'}
+                  <Zap className="w-4 h-4 text-yellow-500" />
                 </DialogTitle>
               </DialogHeader>
               

@@ -26,10 +26,21 @@ const messageSchema = new mongoose.Schema({
     enum: ['user', 'admin'],
     required: true
   },
-  isRead: {
-    type: Boolean,
-    default: false
+  recipientType: {
+    type: String,
+    enum: ['user', 'admin', 'all_admins'],
+    default: 'user'
   },
+  isRead: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    readAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   isAutoReply: {
     type: Boolean,
     default: false
@@ -47,6 +58,10 @@ const messageSchema = new mongoose.Schema({
       city: String,
       country: String
     }
+  },
+  isVisibleToAllAdmins: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true
@@ -72,8 +87,9 @@ messageSchema.statics.sendAutoReply = async function(userId) {
       conversation: userId.toString(),
       text: "Thanks for your message! An admin will review it shortly and get back to you.",
       senderType: 'admin',
+      recipientType: 'user',
       isAutoReply: true,
-      isRead: false
+      isRead: []
     });
 
     const savedAutoReply = await autoReply.save();
@@ -88,7 +104,10 @@ messageSchema.statics.sendAutoReply = async function(userId) {
 // Static method to get conversation between user and admin
 messageSchema.statics.getConversation = function(userId, limit = 50) {
   return this.find({
-    conversation: userId.toString()
+    $or: [
+      { conversation: userId.toString() },
+      { isVisibleToAllAdmins: true }
+    ]
   })
   .populate('sender', 'name email role')
   .populate('recipient', 'name email role')
@@ -96,12 +115,15 @@ messageSchema.statics.getConversation = function(userId, limit = 50) {
   .limit(limit);
 };
 
-// Static method to get all user conversations for admin
+// Static method to get all user conversations for admin with messages visible to all admins
 messageSchema.statics.getAllConversations = async function() {
   const conversations = await this.aggregate([
     {
       $match: {
-        conversation: { $ne: 'admin-broadcast' }
+        $or: [
+          { conversation: { $ne: 'admin-broadcast' } },
+          { isVisibleToAllAdmins: true }
+        ]
       }
     },
     {
@@ -115,7 +137,7 @@ messageSchema.statics.getAllConversations = async function() {
         unreadCount: {
           $sum: {
             $cond: [
-              { $and: [{ $eq: ['$senderType', 'user'] }, { $eq: ['$isRead', false] }] },
+              { $and: [{ $eq: ['$senderType', 'user'] }, { $eq: ['$isRead', []] }] },
               1,
               0
             ]
@@ -135,20 +157,48 @@ messageSchema.statics.getAllConversations = async function() {
   return conversations;
 };
 
-// Static method to mark messages as read
-messageSchema.statics.markAsRead = function(conversationId, senderType = null) {
-  const query = { conversation: conversationId };
-  if (senderType) {
-    query.senderType = senderType;
-  }
-  
-  return this.updateMany(query, { isRead: true });
+// Static method to mark messages as read by a specific admin
+messageSchema.statics.markAsReadByAdmin = function(conversationId, adminId) {
+  return this.updateMany(
+    { 
+      conversation: conversationId,
+      'isRead.user': { $ne: adminId }
+    },
+    { 
+      $push: { 
+        isRead: {
+          user: adminId,
+          readAt: new Date()
+        }
+      }
+    }
+  );
 };
 
-// Instance method to mark single message as read
-messageSchema.methods.markAsRead = function() {
-  this.isRead = true;
-  return this.save();
+// Static method to get all admin submissions/messages for broadcasting
+messageSchema.statics.getAllAdminSubmissions = function() {
+  return this.find({
+    $or: [
+      { recipientType: 'all_admins' },
+      { isVisibleToAllAdmins: true },
+      { senderType: 'user' } // All user messages should be visible to admins
+    ]
+  })
+  .populate('sender', 'name email role phone')
+  .populate('recipient', 'name email role')
+  .sort({ createdAt: -1 });
+};
+
+// Instance method to mark single message as read by admin
+messageSchema.methods.markAsReadByAdmin = function(adminId) {
+  if (!this.isRead.find(read => read.user.toString() === adminId.toString())) {
+    this.isRead.push({
+      user: adminId,
+      readAt: new Date()
+    });
+    return this.save();
+  }
+  return Promise.resolve(this);
 };
 
 // Indexes for better performance
@@ -156,7 +206,9 @@ messageSchema.index({ conversation: 1, createdAt: -1 });
 messageSchema.index({ sender: 1 });
 messageSchema.index({ recipient: 1 });
 messageSchema.index({ senderType: 1 });
-messageSchema.index({ isRead: 1 });
+messageSchema.index({ recipientType: 1 });
+messageSchema.index({ isVisibleToAllAdmins: 1 });
+messageSchema.index({ 'isRead.user': 1 });
 messageSchema.index({ isAutoReply: 1 });
 messageSchema.index({ createdAt: -1 });
 
