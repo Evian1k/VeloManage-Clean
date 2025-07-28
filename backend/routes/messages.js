@@ -172,4 +172,53 @@ router.put('/read/:conversationId', async (req, res) => {
   }
 });
 
+// @route   GET /api/v1/messages/admin/all
+// @desc    Get all user messages for admins (Admin only)
+// @access  Admin
+router.get('/admin/all', requireAdmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 50, unreadOnly = false } = req.query;
+    const skip = (page - 1) * limit;
+
+    let query = { senderType: 'user' };
+    if (unreadOnly === 'true') {
+      query.isRead = false;
+    }
+
+    const messages = await Message.find(query)
+      .populate('sender', 'name email phone role')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const totalMessages = await Message.countDocuments(query);
+    const unreadCount = await Message.countDocuments({
+      senderType: 'user',
+      isRead: false
+    });
+
+    res.json({
+      success: true,
+      data: {
+        messages,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(totalMessages / limit),
+          totalMessages,
+          hasNextPage: skip + messages.length < totalMessages,
+          hasPrevPage: page > 1
+        },
+        unreadCount
+      }
+    });
+
+  } catch (error) {
+    console.error('Get admin messages error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error retrieving admin messages'
+    });
+  }
+});
+
 export default router;
