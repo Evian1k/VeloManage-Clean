@@ -52,7 +52,10 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/autocare-
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:5173",
+  origin: [
+    'http://localhost:5173',
+    'https://velomanage-clean-frontend.onrender.com', // replace with your actual frontend domain if different
+  ],
   credentials: true
 }));
 
