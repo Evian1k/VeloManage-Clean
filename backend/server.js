@@ -8,22 +8,21 @@ import { Server } from 'socket.io';
 import mongoose from 'mongoose';
 
 // Import routes
-import authRoutes from './routes/auth.js';
-import userRoutes from './routes/users.js';
-import serviceRoutes from './routes/services.js';
-import truckRoutes from './routes/trucks.js';
-import messageRoutes from './routes/messages.js';
-import pickupRoutes from './routes/pickups.js';
-import branchRoutes from './routes/branches.js';
-import bookingRoutes from './routes/bookings.js';
-import analyticsRoutes from './routes/analytics.js';
-import dashboardRoutes from './routes/dashboard.js';
-
-import locationRoutes from './routes/locations.js';
+import authRoutes from '../backend/src/routes/auth.js';
+import userRoutes from '../backend/src/routes/users.js';
+import serviceRoutes from './src/routes/services.js';
+import truckRoutes from './src/routes/trucks.js';
+import messageRoutes from './src/routes/messages.js';
+import pickupRoutes from './src/routes/pickups.js';
+import branchRoutes from './src/routes/branches.js';
+import bookingRoutes from './src/routes/bookings.js';
+import analyticsRoutes from './src/routes/analytics.js';
+import dashboardRoutes from './src/routes/dashboard.js  ';
+import locationRoutes from './src/routes/locations.js';
 
 // Import middleware
-import { authenticateToken } from './middleware/auth.js';
-import { errorHandler } from './middleware/errorHandler.js';
+import { authenticateToken } from './src/middleware/auth.js';
+import { errorHandler } from './src/middleware/errorHandler.js';
 
 // Load environment variables
 dotenv.config();
