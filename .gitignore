@@ -145,3 +145,4 @@ docker-compose.override.yml
 *.pem
 *.key
 *.crt
+node_modules
