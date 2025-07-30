@@ -1,329 +1,281 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import User from '../models/User.js';
-import Truck from '../models/Truck.js';
-import Branch from '../models/Branch.js';
+import User from '../src/models/User.js';
+import Vehicle from '../src/models/Vehicle.js';
+import Service from '../src/models/Service.js';
+import Truck from '../src/models/Truck.js';
+import Branch from '../src/models/Branch.js';
 
 // Load environment variables
 dotenv.config();
 
-// Database connection
-const connectDB = async () => {
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/autocare-pro';
+
+async function initializeDatabase() {
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/autocare-pro');
+    console.log('🔄 Connecting to MongoDB...');
+    await mongoose.connect(MONGODB_URI);
     console.log('✅ Connected to MongoDB');
-  } catch (error) {
-    console.error('❌ MongoDB connection error:', error);
-    process.exit(1);
-  }
-};
 
-// Initialize admin users
-const initializeAdmins = async () => {
-  console.log('🔧 Initializing admin users...');
-  
-  const adminPassword = process.env.ADMIN_PASSWORD || 'autocarpro12k@12k.wwc';
-  const admins = [
-    {
-      name: 'Emmanuel Evian',
-      email: 'emmanuel.evian@autocare.com',
-      role: 'main_admin'
-    },
-    {
-      name: 'Ibrahim Mohamud',
-      email: 'ibrahim.mohamud@autocare.com',
-      role: 'admin'
-    },
-    {
-      name: 'Joel Ng\'ang\'a',
-      email: 'joel.nganga@autocare.com',
-      role: 'admin'
-    },
-    {
-      name: 'Patience Karanja',
-      email: 'patience.karanja@autocare.com',
-      role: 'admin'
-    },
-    {
-      name: 'Joyrose Kinuthia',
-      email: 'joyrose.kinuthia@autocare.com',
-      role: 'admin'
-    }
-  ];
+    // Create sample admin users
+    console.log('👨‍💼 Creating admin users...');
+    const adminEmails = [
+      'emmanuel.evian@autocare.com',
+      'ibrahim.mohamud@autocare.com',
+      'joel.nganga@autocare.com',
+      'patience.karanja@autocare.com',
+      'joyrose.kinuthia@autocare.com'
+    ];
 
-  for (const adminData of admins) {
-    const existingAdmin = await User.findOne({ email: adminData.email });
-    
-    if (!existingAdmin) {
-      const admin = new User({
-        name: adminData.name,
-        email: adminData.email,
-        password: adminPassword,
-        isAdmin: true,
-        role: adminData.role,
-        vehicleCount: 0
-      });
-      
-      await admin.save();
-      console.log(`✅ Created admin: ${adminData.name}`);
-    } else {
-      console.log(`👤 Admin already exists: ${adminData.name}`);
-    }
-  }
-};
+    const adminPassword = process.env.ADMIN_PASSWORD || 'autocarpro12k@12k.wwc';
 
-// Initialize branches
-const initializeBranches = async () => {
-  console.log('🏢 Initializing branches...');
-  
-  const branches = [
-    {
-      name: 'AutoCare CBD Branch',
-      code: 'AC-CBD',
-      location: {
-        address: 'Kimathi Street, Nairobi CBD',
-        city: 'Nairobi',
-        state: 'Nairobi County',
-        zipCode: '00100',
-        coordinates: {
-          latitude: -1.2921,
-          longitude: 36.8219
+    for (const email of adminEmails) {
+      const existingAdmin = await User.findOne({ email });
+      if (!existingAdmin) {
+        const adminData = User.getAdminByEmail(email);
+        if (adminData) {
+          const admin = new User({
+            name: adminData.name,
+            email: email,
+            password: adminPassword,
+            isAdmin: true,
+            role: adminData.role,
+            phone: '+1-555-0123'
+          });
+          await admin.save();
+          console.log(`✅ Created admin: ${admin.name} (${email})`);
         }
-      },
-      contact: {
-        phone: '+254700100200',
-        email: 'cbd@autocare.com'
-      },
-      workingHours: {
-        monday: { open: '08:00', close: '18:00', isOpen: true },
-        tuesday: { open: '08:00', close: '18:00', isOpen: true },
-        wednesday: { open: '08:00', close: '18:00', isOpen: true },
-        thursday: { open: '08:00', close: '18:00', isOpen: true },
-        friday: { open: '08:00', close: '18:00', isOpen: true },
-        saturday: { open: '09:00', close: '16:00', isOpen: true },
-        sunday: { open: '10:00', close: '14:00', isOpen: false }
-      },
-      services: ['maintenance', 'repair', 'inspection', 'emergency'],
-      capacity: {
-        maxTrucks: 30,
-        serviceSlots: 8
-      }
-    },
-    {
-      name: 'AutoCare Westlands Branch',
-      code: 'AC-WL',
-      location: {
-        address: 'Westlands Road, Westlands',
-        city: 'Nairobi',
-        state: 'Nairobi County',
-        zipCode: '00600',
-        coordinates: {
-          latitude: -1.2635,
-          longitude: 36.8078
-        }
-      },
-      contact: {
-        phone: '+254700100201',
-        email: 'westlands@autocare.com'
-      },
-      workingHours: {
-        monday: { open: '07:30', close: '19:00', isOpen: true },
-        tuesday: { open: '07:30', close: '19:00', isOpen: true },
-        wednesday: { open: '07:30', close: '19:00', isOpen: true },
-        thursday: { open: '07:30', close: '19:00', isOpen: true },
-        friday: { open: '07:30', close: '19:00', isOpen: true },
-        saturday: { open: '08:00', close: '17:00', isOpen: true },
-        sunday: { open: '09:00', close: '15:00', isOpen: true }
-      },
-      services: ['maintenance', 'repair', 'fuel', 'car_wash'],
-      capacity: {
-        maxTrucks: 25,
-        serviceSlots: 6
+      } else {
+        console.log(`ℹ️ Admin already exists: ${email}`);
       }
     }
-  ];
 
-  for (const branchData of branches) {
-    const existingBranch = await Branch.findOne({ code: branchData.code });
-    
-    if (!existingBranch) {
-      const branch = new Branch(branchData);
-      await branch.save();
-      console.log(`✅ Created branch: ${branchData.name}`);
-    } else {
-      console.log(`🏢 Branch already exists: ${branchData.name}`);
-    }
-  }
-};
-
-// Initialize truck fleet
-const initializeTrucks = async () => {
-  console.log('🚛 Initializing truck fleet...');
-  
-  const trucks = [
-    {
-      truckId: 'TRK-001',
-      driver: {
-        name: 'John Smith',
-        phone: '+254700123456',
-        email: 'john.smith@autocare.com',
-        licenseNumber: 'DL123456'
-      },
-      vehicle: {
-        licensePlate: 'KDA-001T',
-        make: 'Toyota',
-        model: 'Hiace',
-        year: 2020,
-        capacity: '1.5 Tons'
-      },
-      currentLocation: {
-        latitude: -1.2921,
-        longitude: 36.8219,
-        address: 'AutoCare Service Center, Nairobi CBD'
-      },
-      specifications: {
-        fuelType: 'diesel',
-        engineSize: '2.7L',
-        transmission: 'manual'
-      }
-    },
-    {
-      truckId: 'TRK-002',
-      driver: {
-        name: 'Jane Doe',
-        phone: '+254700234567',
-        email: 'jane.doe@autocare.com',
-        licenseNumber: 'DL234567'
-      },
-      vehicle: {
-        licensePlate: 'KDB-002T',
-        make: 'Isuzu',
-        model: 'NPR',
-        year: 2019,
-        capacity: '2 Tons'
-      },
-      currentLocation: {
-        latitude: -1.3032,
-        longitude: 36.8335,
-        address: 'Westlands, Nairobi'
-      },
-      specifications: {
-        fuelType: 'diesel',
-        engineSize: '3.0L',
-        transmission: 'manual'
-      }
-    },
-    {
-      truckId: 'TRK-003',
-      driver: {
-        name: 'Michael Johnson',
-        phone: '+254700345678',
-        email: 'michael.johnson@autocare.com',
-        licenseNumber: 'DL345678'
-      },
-      vehicle: {
-        licensePlate: 'KDC-003T',
-        make: 'Mitsubishi',
-        model: 'Canter',
-        year: 2021,
-        capacity: '1.8 Tons'
-      },
-      currentLocation: {
-        latitude: -1.2881,
-        longitude: 36.8320,
-        address: 'Karen, Nairobi'
-      },
-      specifications: {
-        fuelType: 'diesel',
-        engineSize: '3.9L',
-        transmission: 'automatic'
-      }
-    }
-  ];
-
-  for (const truckData of trucks) {
-    const existingTruck = await Truck.findOne({ truckId: truckData.truckId });
-    
-    if (!existingTruck) {
-      const truck = new Truck(truckData);
-      await truck.save();
-      console.log(`✅ Created truck: ${truckData.truckId} - ${truckData.driver.name}`);
-    } else {
-      console.log(`🚛 Truck already exists: ${truckData.truckId}`);
-    }
-  }
-};
-
-// Create sample user data
-const initializeSampleUsers = async () => {
-  console.log('👥 Initializing sample users...');
-  
-  const sampleUsers = [
-    {
-      name: 'Demo User',
-      email: 'user@demo.com',
-      password: 'password123',
-      phone: '+254700111222',
-      vehicleCount: 2
-    },
-    {
-      name: 'Test Customer',
-      email: 'customer@test.com',
-      password: 'password123',
-      phone: '+254700333444',
-      vehicleCount: 1
-    }
-  ];
-
-  for (const userData of sampleUsers) {
-    const existingUser = await User.findOne({ email: userData.email });
-    
+    // Create sample regular user
+    console.log('👤 Creating sample regular user...');
+    const existingUser = await User.findOne({ email: 'john.doe@example.com' });
     if (!existingUser) {
-      const user = new User(userData);
-      await user.save();
-      console.log(`✅ Created sample user: ${userData.name}`);
-    } else {
-      console.log(`👤 Sample user already exists: ${userData.name}`);
-    }
-  }
-};
+      const sampleUser = new User({
+        name: 'John Doe',
+        email: 'john.doe@example.com',
+        password: 'password123',
+        phone: '+1-555-0456',
+        isAdmin: false,
+        role: 'user'
+      });
+      await sampleUser.save();
+      console.log('✅ Created sample user: john.doe@example.com (password: password123)');
 
-// Main initialization function
-const initializeDatabase = async () => {
-  try {
-    console.log('🚀 Starting database initialization...');
-    
-    await connectDB();
-    await initializeAdmins();
-    await initializeBranches();
-    await initializeTrucks();
-    await initializeSampleUsers();
-    
-    console.log('✅ Database initialization completed successfully!');
+      // Create sample vehicle for the user
+      console.log('🚗 Creating sample vehicle...');
+      const sampleVehicle = new Vehicle({
+        owner: sampleUser._id,
+        make: 'Toyota',
+        model: 'Camry',
+        year: 2020,
+        licensePlate: 'ABC123',
+        color: 'Silver',
+        vin: '1HGBH41JXMN109186',
+        mileage: 45000,
+        fuelType: 'gasoline',
+        transmission: 'automatic'
+      });
+      await sampleVehicle.save();
+      console.log('✅ Created sample vehicle: 2020 Toyota Camry');
+
+      // Create sample service request
+      console.log('🔧 Creating sample service request...');
+      const sampleService = new Service({
+        user: sampleUser._id,
+        vehicle: sampleVehicle._id,
+        serviceType: 'oil_change',
+        title: 'Regular Oil Change',
+        description: 'Routine oil change and filter replacement',
+        preferredDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+        location: {
+          address: '123 Main St, Anytown, USA',
+          coordinates: [-74.006, 40.7128] // NYC coordinates
+        },
+        urgency: 'medium',
+        estimatedCost: 75
+      });
+      await sampleService.save();
+      console.log('✅ Created sample service request');
+    } else {
+      console.log('ℹ️ Sample user already exists');
+    }
+
+    // Create sample branches
+    console.log('🏢 Creating sample branches...');
+    const branches = [
+      {
+        name: 'AutoCare Pro Downtown',
+        code: 'AC-DT',
+        location: {
+          address: '456 Business Ave',
+          city: 'Downtown',
+          state: 'NY',
+          zipCode: '10001',
+          coordinates: {
+            latitude: 40.7589,
+            longitude: -74.0059
+          }
+        },
+        contact: {
+          phone: '+1-555-0789',
+          email: 'downtown@autocare.com'
+        },
+        workingHours: {
+          monday: { open: '08:00', close: '18:00', isOpen: true },
+          tuesday: { open: '08:00', close: '18:00', isOpen: true },
+          wednesday: { open: '08:00', close: '18:00', isOpen: true },
+          thursday: { open: '08:00', close: '18:00', isOpen: true },
+          friday: { open: '08:00', close: '18:00', isOpen: true },
+          saturday: { open: '09:00', close: '16:00', isOpen: true },
+          sunday: { open: '10:00', close: '14:00', isOpen: true }
+        },
+        services: ['maintenance', 'repair', 'inspection'],
+        capacity: {
+          maxTrucks: 30,
+          serviceSlots: 8
+        },
+        isActive: true
+      },
+      {
+        name: 'AutoCare Pro Uptown',
+        code: 'AC-UP',
+        location: {
+          address: '789 Service Blvd',
+          city: 'Uptown',
+          state: 'NY',
+          zipCode: '10002',
+          coordinates: {
+            latitude: 40.7831,
+            longitude: -73.9665
+          }
+        },
+        contact: {
+          phone: '+1-555-0987',
+          email: 'uptown@autocare.com'
+        },
+        workingHours: {
+          monday: { open: '07:00', close: '19:00', isOpen: true },
+          tuesday: { open: '07:00', close: '19:00', isOpen: true },
+          wednesday: { open: '07:00', close: '19:00', isOpen: true },
+          thursday: { open: '07:00', close: '19:00', isOpen: true },
+          friday: { open: '07:00', close: '19:00', isOpen: true },
+          saturday: { open: '08:00', close: '17:00', isOpen: true },
+          sunday: { open: '09:00', close: '15:00', isOpen: true }
+        },
+        services: ['maintenance', 'repair', 'fuel', 'car_wash'],
+        capacity: {
+          maxTrucks: 25,
+          serviceSlots: 6
+        },
+        isActive: true
+      }
+    ];
+
+    for (const branchData of branches) {
+      const existingBranch = await Branch.findOne({ code: branchData.code });
+      if (!existingBranch) {
+        const branch = new Branch(branchData);
+        await branch.save();
+        console.log(`✅ Created branch: ${branch.name} (${branch.code})`);
+      } else {
+        console.log(`ℹ️ Branch already exists: ${branchData.name}`);
+      }
+    }
+
+    // Create sample trucks
+    console.log('🚛 Creating sample trucks...');
+    const trucks = [
+      {
+        truckId: 'TRK-001',
+        driver: {
+          name: 'John Smith',
+          phone: '+1-555-1001',
+          email: 'john.smith@autocare.com',
+          licenseNumber: 'DL123456'
+        },
+        vehicle: {
+          licensePlate: 'AC001',
+          make: 'Ford',
+          model: 'Transit',
+          year: 2022,
+          capacity: '3.5 Tons'
+        },
+        status: 'available',
+        currentLocation: {
+          latitude: 40.7128,
+          longitude: -74.006,
+          address: 'Downtown Service Area'
+        },
+        specifications: {
+          fuelType: 'petrol',
+          engineSize: '3.5L',
+          transmission: 'automatic'
+        }
+      },
+      {
+        truckId: 'TRK-002',
+        driver: {
+          name: 'Jane Doe',
+          phone: '+1-555-1002',
+          email: 'jane.doe@autocare.com',
+          licenseNumber: 'DL234567'
+        },
+        vehicle: {
+          licensePlate: 'AC002',
+          make: 'Mercedes',
+          model: 'Sprinter',
+          year: 2023,
+          capacity: '3.0 Tons'
+        },
+        status: 'available',
+        currentLocation: {
+          latitude: 40.7831,
+          longitude: -73.9665,
+          address: 'Uptown Service Area'
+        },
+        specifications: {
+          fuelType: 'diesel',
+          engineSize: '2.1L',
+          transmission: 'automatic'
+        }
+      }
+    ];
+
+    for (const truckData of trucks) {
+      const existingTruck = await Truck.findOne({ truckId: truckData.truckId });
+      if (!existingTruck) {
+        const truck = new Truck(truckData);
+        await truck.save();
+        console.log(`✅ Created truck: ${truck.truckId} (${truck.vehicle.make} ${truck.vehicle.model})`);
+      } else {
+        console.log(`ℹ️ Truck already exists: ${truckData.truckId}`);
+      }
+    }
+
+    console.log('🎉 Database initialization completed successfully!');
     console.log('\n📋 Summary:');
-    console.log('- Admin users created/verified');
-    console.log('- Branch locations initialized');
-    console.log('- Truck fleet initialized');
-    console.log('- Sample users created');
-    console.log('\n🔐 Admin Login Details:');
-    console.log('Email: emmanuel.evian@autocare.com');
-    console.log('Password: autocarpro12k@12k.wwc');
-    console.log('\n👤 Sample User Login:');
-    console.log('Email: user@demo.com');
-    console.log('Password: password123');
-    
+    console.log(`👨‍💼 Admin users: ${adminEmails.length}`);
+    console.log('👤 Sample user: john.doe@example.com (password: password123)');
+    console.log('🚗 Sample vehicle: 2020 Toyota Camry (ABC123)');
+    console.log('🔧 Sample service request created');
+    console.log(`🏢 Branches: ${branches.length}`);
+    console.log(`🚛 Trucks: ${trucks.length}`);
+    console.log('\n🔐 Admin login credentials:');
+    console.log('Email: Any of the admin emails above');
+    console.log(`Password: ${adminPassword}`);
+
   } catch (error) {
     console.error('❌ Database initialization failed:', error);
+    process.exit(1);
   } finally {
     await mongoose.connection.close();
-    console.log('🔌 Database connection closed');
-    process.exit(0);
+    console.log('\n🔌 Database connection closed');
   }
-};
-
-// Run initialization if this file is executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  initializeDatabase();
 }
 
-export default initializeDatabase;
+// Run the initialization
+initializeDatabase();

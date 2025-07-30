@@ -11,13 +11,14 @@ import mongoose from 'mongoose';
 import authRoutes from '../backend/src/routes/auth.js';
 import userRoutes from '../backend/src/routes/users.js';
 import serviceRoutes from './src/routes/services.js';
+import vehicleRoutes from './src/routes/vehicles.js';
 import truckRoutes from './src/routes/trucks.js';
 import messageRoutes from './src/routes/messages.js';
 import pickupRoutes from './src/routes/pickups.js';
 import branchRoutes from './src/routes/branches.js';
 import bookingRoutes from './src/routes/bookings.js';
 import analyticsRoutes from './src/routes/analytics.js';
-import dashboardRoutes from './src/routes/dashboard.js  ';
+import dashboardRoutes from './src/routes/dashboard.js';
 import locationRoutes from './src/routes/locations.js';
 
 // Import middleware
@@ -79,6 +80,7 @@ const apiVersion = process.env.API_VERSION || 'v1';
 app.use(`/api/${apiVersion}/auth`, authRoutes);
 app.use(`/api/${apiVersion}/users`, authenticateToken, userRoutes);
 app.use(`/api/${apiVersion}/services`, authenticateToken, serviceRoutes);
+app.use(`/api/${apiVersion}/vehicles`, authenticateToken, vehicleRoutes);
 app.use(`/api/${apiVersion}/trucks`, authenticateToken, truckRoutes);
 app.use(`/api/${apiVersion}/messages`, authenticateToken, messageRoutes);
 app.use(`/api/${apiVersion}/pickups`, authenticateToken, pickupRoutes);
